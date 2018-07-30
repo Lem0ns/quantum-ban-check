@@ -16,7 +16,7 @@
     "url": "https://github.com/Lem0ns/quantum-ban-check/issues"
   },
   "bin": {
-    "quantum-ban-check": "index.js"
+    "quantum-ban-check": "cli.js"
   },
   "homepage": "https://github.com/Lem0ns/quantum-ban-check#readme",
   "dependencies": {

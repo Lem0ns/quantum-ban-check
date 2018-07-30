@@ -1,19 +1,23 @@
 #!/usr/bin/env node
-
-const colors = require('colors');
 const request = require('request');
 const Agent = require('socks5-https-client/lib/Agent');
-const fs = require('fs');
 const extend = require('extend');
 
-var accBans = [], accLocks = [], accTemps = [], accGood = [],
-	total, testFile,
-	timeout = 20000;
-
-function checkBan(userpass, proxy, callback) {
+module.exports = function checkBan(userpass, proxy, callback) {
+	console.log(userpass, proxy);
+	var origCallback = callback;
+	callback = function () {
+		clearTimeout(failTimeout);
+		origCallback.apply(this, arguments);
+	}
+	var failTimeout = setTimeout(function () {
+		failsafed = true;
+		origCallback.apply(this, arguments);
+	}, 20000);
 	var result = {
 		banned: false,
 		locked: false,
+		baduser: false,
 		temp: false,
 		bandates: [],
 		userpass: userpass
@@ -22,6 +26,7 @@ function checkBan(userpass, proxy, callback) {
 	var proxyInfo = {
 		jar: request.jar()
 	};
+
 	if (!proxy || proxy.trim() === "") {
 		// No proxy
 	} else if (proxy.indexOf("http") == 0) {
@@ -52,19 +57,26 @@ function checkBan(userpass, proxy, callback) {
 	}, proxyInfo), function (e, response, body) {
 		if (e)
 			return callback(e, false, userpass);
-		var match = body ? /\/c=([^/]+)\//g.exec(body) : [];
+		var match = /\/c=([^/]+)\//g.exec(response.request.uri.pathname);
+		if (!match || match.length < 2)
+			match = body ? /\/c=([^/]+)\//g.exec(body) : [];
 		if (!match || match.length < 2) {
 			if (/To protect your security, your account has been locked./g.test(body)) {
 				result.locked = true;
 				callback(false, result);
 			} else if (/You have been blocked from logging in/g.test(body)) {
 				callback("Too many attempts! Slow it down!", false);
-			} else if (/c-google-recaptcha-error--show/g.test(body)) {
-				callback("Wants 2captcha now, cool off...", false);
+			} else if (/Your login or password was incorrect. Please try again./g.test(body)) {
+				result.baduser = true;
+				callback(false, result);
+			} else if (/c-google-recaptcha-error--show/g.test(body)
+					|| /Please complete the reCAPTCHA box./g.test(body)) {
+				callback("Wants recaptcha, cool off...", false);
+			} else if (/Sorry, this part of the website is currently unavailable./g.test(body)) {
+				callback("Service is unavailable for this IP, cool off...", false);
 			} else {
-				callback("Unable to check this account!", false);
-				// TODO Write this to file
 				console.log(userpass, response.statusCode, body);
+				callback("Unable to check this account!", false);
 			}
 			return;
 		}
@@ -95,126 +107,3 @@ function checkBan(userpass, proxy, callback) {
 		})
 	})
 }
-
-function shuffle(a) {
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-}
-
-function processAccs() {
-	var startTime = new Date().getTime();
-	var promises = [];
-	// Do 5 every 15 seconds?
-	shuffle(proxies);
-	for (var i = 0; i < proxies.length; i++) {
-		if (i >= banChecks.length)
-			continue;
-		promises.push(processAcc(banChecks[i], proxies[i]));
-	}
-	Promise.all(promises).then(function (results) {
-		if (banChecks.length == 0) {
-			// TODO Write to file?
-			process.stdout.write("\n"+colors.green.inverse("          DONE!         ")+"\n");
-			var combo = [...accLocks, ...accBans];
-			if (accGood.length > 0)
-				fs.writeFileSync(testFile+".active", accGood.join("\r\n"));
-			if (accTemps.length > 0)
-				fs.writeFileSync(testFile+".2day", accTemps.join("\r\n"));
-			if (combo.length > 0)
-				fs.writeFileSync(testFile+".banned", combo.join("\r\n"));
-			process.exit();
-		} else {
-			setTimeout(function () {
-				processAccs();
-			}, timeout - (new Date().getTime() - startTime));
-		}
-	})
-}
-
-function processAcc(userpass, proxy) {
-	var failsafed;
-
-	return new Promise(function (resolve, reject) {
-		var failTimeout = setTimeout(function () {
-			failsafed = true;
-			resolve();
-		}, 20000);
-		checkBan(userpass, proxy, function (err, result, userpass) {
-			if (failsafed) return; // Invalid req now
-			clearTimeout(failTimeout);
-			if (err) {
-				resolve();
-				return;
-			}
-			banChecks.splice(banChecks.indexOf(result.userpass), 1);
-
-			var clearStr = "";
-			for (var i = 0; i < process.stdout.columns - 2; i++)
-				clearStr += " ";
-			process.stdout.write("\r"+clearStr+"\r");
-			var tag = result.userpass+" "+result.bandates.join(", ");
-
-			if (result.banned) {
-				accBans.push("BANNED "+result.userpass
-					+"  Offense date(s): "+result.bandates.join(", "));
-				process.stdout.write(colors.red.inverse.bold("BANNED")+"   "+tag);
-			} else if (result.temp)  {
-				accTemps.push(result.userpass);
-				process.stdout.write(colors.yellow.inverse.bold(" TEMP ")+"   "+tag);
-			} else if (result.locked) {
-				accLocks.push("LOCKED "+result.userpass);
-				process.stdout.write(colors.blue.inverse.bold("LOCKED")+"   "+tag);
-			} else {
-				accGood.push(result.userpass);
-				process.stdout.write(colors.green.inverse.bold("ACTIVE")+"   "+tag);
-			}
-
-			var perc = ""+((accGood.length/(total-banChecks.length))*100),
-				percind = perc.indexOf(".");
-			if (percind > -1)
-				perc = perc.substr(0, percind);
-
-			var output = "\n"+
-				colors.inverse.cyan.bold("  QuantumShop.co  ")+" "+
-				colors.white.inverse.bold((total-banChecks.length)+"/"+total)+" "+
-				colors.green.inverse.bold("ACTIVE:"+accGood.length)+" "+
-				colors.inverse.bold.red("BANNED:"+accBans.length)+" "+
-				colors.inverse.bold.blue("LOCKED:"+accLocks.length)+" "+
-				colors.inverse.bold.yellow("TEMP:"+accTemps.length)+" "+
-				colors.inverse.bold.cyan("ACTIVE%:"+perc);
-			process.stdout.write(output);
-
-			resolve();
-		});
-	});
-}
-
-testFile = process.argv[process.argv[0].indexOf("node") > -1 ? 2 : 1];
-if (testFile === "help" || !testFile) {
-	console.log(colors.cyan.inverse(
-"                        QuantumShop.co Ban Checker                        "));
-	console.log("See https://github.com/Lem0ns/quantum-ban-check for help!");
-} else {
-	if (fs.existsSync("./proxies.txt")) {
-		proxies = fs.readFileSync('./proxies.txt').toString().trim().split("\n").map((s) => s.trim());
-	} else {
-		proxies = [];
-	}
-    banChecks = fs.readFileSync(testFile).toString()
-			.trim().split("\n").map((s) => s.trim());
-	total = banChecks.length;
-	proxies = proxies.filter((p) => p.trim().length > 0);
-	if (proxies.length == 0)
-		proxies = [false];
-
-	process.stdout.write(colors.inverse.cyan.bold("  QuantumShop.co  ")+" Starting...");
-
-	processAccs();
-}
-
-process.on('exit', function () {
-	console.log(""); // new line
-}) //*/
