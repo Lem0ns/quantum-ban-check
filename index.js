@@ -1,10 +1,8 @@
-#!/usr/bin/env node
 const request = require('request');
 const Agent = require('socks5-https-client/lib/Agent');
 const extend = require('extend');
 
 module.exports = function checkBan(userpass, proxy, callback) {
-	console.log(userpass, proxy);
 	var origCallback = callback;
 	callback = function () {
 		clearTimeout(failTimeout);
