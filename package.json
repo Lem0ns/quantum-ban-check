@@ -1,6 +1,6 @@
 {
   "name": "quantum-ban-check",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Install Node.JS for your OS, then in a command prompt or terminal run:",
   "main": "index.js",
   "scripts": {

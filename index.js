@@ -4,14 +4,8 @@ const extend = require('extend');
 
 module.exports = function checkBan(userpass, proxy, callback) {
 	var origCallback = callback;
-	callback = function () {
-		clearTimeout(failTimeout);
-		origCallback.apply(this, arguments);
-	}
-	var failTimeout = setTimeout(function () {
-		failsafed = true;
-		origCallback.apply(this, arguments);
-	}, 20000);
+	var calledBack = false;
+	var th1s = this;
 	var result = {
 		banned: false,
 		locked: false,
@@ -20,6 +14,17 @@ module.exports = function checkBan(userpass, proxy, callback) {
 		bandates: [],
 		userpass: userpass
 	};
+	callback = function () {
+		if (calledBack)
+			return;
+		calledBack = true;
+		clearTimeout(failTimeout);
+		origCallback.apply(this, arguments);
+	}
+	var failTimeout = setTimeout(function () {
+		failsafed = true;
+		callback("Timed out", false);
+	}, 120000);
 	var [ user, pass ] = userpass.split(":");
 	var proxyInfo = {
 		jar: request.jar()
@@ -64,7 +69,7 @@ module.exports = function checkBan(userpass, proxy, callback) {
 				callback(false, result);
 			} else if (/You have been blocked from logging in/g.test(body)) {
 				callback("Too many attempts! Slow it down!", false);
-			} else if (/Your login or password was incorrect. Please try again./g.test(body)) {
+			} else if (/Your login or password was incorrect./g.test(body)) {
 				result.baduser = true;
 				callback(false, result);
 			} else if (/c-google-recaptcha-error--show/g.test(body)
