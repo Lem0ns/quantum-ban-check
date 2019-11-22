@@ -20,6 +20,8 @@
   },
   "homepage": "https://github.com/Lem0ns/quantum-ban-check#readme",
   "dependencies": {
+    "@infosimples/node_two_captcha": "^1.0.2",
+    "anticaptcha-async": "^0.1.4",
     "colors": "^1.3.0",
     "extend": "^3.0.1",
     "request": "^2.87.0",

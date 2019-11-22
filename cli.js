@@ -3,6 +3,18 @@ const colors = require('colors');
 const fs = require('fs');
 const checkBan = require('./index.js');
 
+let options = {};
+
+if (!fs.existsSync('./options.json')) {
+  console.log("Failed to load ban checker, no options.json!");
+} else {
+	options = JSON.parse(fs.readFileSync('./options.json'));
+}
+
+if (!fs.existsSync('./proxies.txt')) {
+  console.log("Failed to load proxies.txt, will be single threaded and slow...");
+}
+
 var accBans = [], accLocks = [], accTemps = [], accGood = [],
 	total, testFile,
 	timeout = 90000;
@@ -49,7 +61,7 @@ function processAcc(userpass, proxy) {
 	var failsafed;
 
 	return new Promise(function (resolve, reject) {
-		checkBan(userpass, proxy, function (err, result, userpass) {
+		checkBan(userpass, proxy, options, function (err, result, userpass) {
 			if (failsafed) return; // Invalid req now
 			if (err) {
 				process.stdout.write("\r"+err+"\r");

@@ -10,12 +10,33 @@ npm install -g quantum-ban-check
 Save your accounts in `username:password` line separated format to a txt file,
 for example accs.txt. Then run:
 ```
-$quantum-ban-check accs.txt
+quantum-ban-check accs.txt
+```
 
 The accounts will be checked, and saved into files depending on status:
 - Unbanned accounts goes to filename.txt.active
 - 2 day bans go to filename.txt.2day
 - Locked and Banned accs go to filename.txt.disabled with extra info
+
+# Options
+
+You will need an `options.json` file to use captcha services to login. For anticaptcha the file should be:
+
+```json
+{
+  "provider": "anticaptcha",
+  "key": "YOUR_KEY_HERE"
+}
+```
+
+and for 2captcha ya use:
+
+```json
+{
+  "provider": "2captcha",
+  "key": "YOUR_KEY_HERE"
+}
+```
 
 # Proxies
 
