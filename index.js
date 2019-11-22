@@ -27,7 +27,7 @@ module.exports = async function checkBan(userpass, proxy, options, callback) {
 		failsafed = true;
 		callback("Timed out", false);
 	}, 120000);
-	var [ user, pass ] = userpass.split(":");
+	var [user, pass] = userpass.split(":");
 	var proxyInfo = {
 		jar: request.jar()
 	};
@@ -80,25 +80,24 @@ module.exports = async function checkBan(userpass, proxy, options, callback) {
 				} else if (/Your login or password was incorrect./g.test(body)) {
 					result.baduser = true;
 					callback(false, result);
-				// } else if (captchaKey && (/c-google-recaptcha-error--show/g.test(body)
-				// 		|| /Please complete the reCAPTCHA box[.]/g.test(body)
-				// 		|| /grecaptcha[.]render/g.test(body))) {
-				// 	callback("Wants recaptcha, retry with captcha", false);
-				// 	checkBan(userpass, proxy, callback, true);
+					// } else if (captchaKey && (/c-google-recaptcha-error--show/g.test(body)
+					// 		|| /Please complete the reCAPTCHA box[.]/g.test(body)
+					// 		|| /grecaptcha[.]render/g.test(body))) {
+					// 	callback("Wants recaptcha, retry with captcha", false);
+					// 	checkBan(userpass, proxy, callback, true);
 				} else if (/Sorry, this part of the website is currently unavailable./g.test(body)) {
 					callback("Service is unavailable for this IP, cool off...", false);
 				} else {
-					console.log(userpass, response.statusCode, body);
-					callback("Unable to check this account!", false);
+					callback("Unable to check " + user + " at this time?", false);
 				}
 				return;
 			}
 			var cValue = match[1];
 			request(extend({
-				url: 'https://secure.runescape.com/m=offence-appeal/c='+cValue+'/account-history',
+				url: 'https://secure.runescape.com/m=offence-appeal/c=' + cValue + '/account-history',
 				headers: {
 					'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0',
-					'Referer': 'https://www.runescape.com/c='+cValue+'/account_settings.ws'
+					'Referer': 'https://www.runescape.com/c=' + cValue + '/account_settings.ws'
 				}
 			}, proxyInfo), function (e, response, body) {
 				if (e)
@@ -118,12 +117,12 @@ module.exports = async function checkBan(userpass, proxy, options, callback) {
 				}
 				if (!result.temp || !result.banned) {
 					request(extend({
-						url: 'https://www.runescape.com/c='+cValue+'/account_settings',
+						url: 'https://www.runescape.com/c=' + cValue + '/account_settings',
 						method: 'GET',
 						followAllRedirects: true,
 						headers: {
 							'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0',
-							'Referer': 'https://www.runescape.com/c='+cValue+'/community'
+							'Referer': 'https://www.runescape.com/c=' + cValue + '/community'
 						}
 					}, proxyInfo), function (e, response, body) {
 						if (/Member until /.test(body)) {
@@ -142,28 +141,26 @@ module.exports = async function checkBan(userpass, proxy, options, callback) {
 		const url = 'https://secure.runescape.com/m=weblogin/loginform.ws?mod=www&ssl=1&dest=community';
 		const key = '6Lcsv3oUAAAAAGFhlKrkRb029OHio098bbeyi_Hv';
 		if (options.provider === "2captcha") {
-			console.log("Using 2captcha...");
 			let client = new Client(options.key, {
-                    timeout: 600000, // 10 minutes
-                    polling: 5000, // 5 second polling
-										throwErrors: false});
+				timeout: 600000, // 10 minutes
+				polling: 5000, // 5 second polling
+				throwErrors: false
+			});
 			let response = await client.decodeRecaptchaV2({
 				googlekey: key,
 				pageurl: url
 			});
 			doStoof(response.text);
 		} else if (options.provider === "anticaptcha") {
-			console.log("Using anticaptcha...");
 			(async function () {
 				const client = anticaptcha(options.key);
-				
-				doStoof((await client.getRecaptcha(url, key)).getValue());
+
+				doStoof((await client.getRecaptcha(url, key, {attempts: 60})).getValue());
 			})();
 		} else {
-			console.log("Invalid provider "+options.provider+", must be 2captcha or anticaptcha")
+			console.log("Invalid provider " + options.provider + ", must be 2captcha or anticaptcha")
 		}
 	} else {
-		console.log("Using nothing...");
 		doStoof(false);
 	}
 }

@@ -3,7 +3,7 @@
 Install Node.JS for your OS, then in a command prompt or terminal run:
 
 ```
-npm install -g quantum-ban-check
+npm install -g git+https://github.com/Lem0ns/quantum-ban-check.git
 ```
 
 # Running the program
